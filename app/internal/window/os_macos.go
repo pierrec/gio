@@ -122,6 +122,10 @@ func (w *window) WriteClipboard(s string) {
 	})
 }
 
+func (w *window) SetCursor(name string) string {
+	return ""
+}
+
 func (w *window) ShowTextInput(show bool) {}
 
 func (w *window) SetAnimating(anim bool) {

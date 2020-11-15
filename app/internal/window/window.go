@@ -60,6 +60,9 @@ type Driver interface {
 	// WriteClipboard requests a clipboard write.
 	WriteClipboard(s string)
 
+	// SetCursor updates the cursor in use and returns the current one.
+	SetCursor(name string) string
+
 	// Close the window.
 	Close()
 }

@@ -79,8 +79,26 @@ type Source uint8
 // Buttons is a set of mouse buttons
 type Buttons uint8
 
+// CursorName is the name of a cursor.
+type CursorName string
+
 // Must match app/internal/input.areaKind
 type areaKind uint8
+
+const (
+	// CursorArrow defines the default cursor.
+	CursorArrow CursorName = "arrow"
+	// CursorText defines the cursor to indicate text.
+	CursorText CursorName = "text"
+	// CursorPointer defines the cursor to indicate a link.
+	CursorPointer CursorName = "pointer"
+	// CursorMove defines the cursor to indicate moving an area.
+	CursorMove CursorName = "move"
+	// CursorVerticalResize defines the cursor to indicate vertical resize.
+	CursorVerticalResize CursorName = "vertical resize"
+	// CursorHorizontalResize defines the cursor to indicate horizontal resize.
+	CursorHorizontalResize CursorName = "horizontal resize"
+)
 
 const (
 	// A Cancel event is generated when the current gesture is
