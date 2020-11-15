@@ -25,7 +25,7 @@ import (
 	gunsafe "gioui.org/internal/unsafe"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/paint"
+	"gioui.org/op/clip"
 )
 
 type GPU struct {
@@ -103,7 +103,6 @@ type pathOp struct {
 type imageOp struct {
 	z        float32
 	path     *pathOp
-	off      f32.Point
 	clip     image.Rectangle
 	material material
 	clipType clipType
@@ -127,11 +126,12 @@ type material struct {
 type clipOp struct {
 	// TODO: Use image.Rectangle?
 	bounds f32.Rectangle
+	width  float32
+	style  clip.StrokeStyle
 }
 
 // imageOpData is the shadow of paint.ImageOp.
 type imageOpData struct {
-	rect   image.Rectangle
 	src    *image.RGBA
 	handle interface{}
 }
@@ -160,6 +160,12 @@ func (op *clipOp) decode(data []byte) {
 	}
 	*op = clipOp{
 		bounds: layout.FRect(r),
+		width:  math.Float32frombits(bo.Uint32(data[17:])),
+		style: clip.StrokeStyle{
+			Cap:   clip.StrokeCap(data[21]),
+			Join:  clip.StrokeJoin(data[22]),
+			Miter: math.Float32frombits(bo.Uint32(data[23:])),
+		},
 	}
 }
 
@@ -171,18 +177,7 @@ func decodeImageOp(data []byte, refs []interface{}) imageOpData {
 	if handle == nil {
 		return imageOpData{}
 	}
-	bo := binary.LittleEndian
 	return imageOpData{
-		rect: image.Rectangle{
-			Min: image.Point{
-				X: int(int32(bo.Uint32(data[1:]))),
-				Y: int(int32(bo.Uint32(data[5:]))),
-			},
-			Max: image.Point{
-				X: int(int32(bo.Uint32(data[9:]))),
-				Y: int(int32(bo.Uint32(data[13:]))),
-			},
-		},
 		src:    refs[0].(*image.RGBA),
 		handle: handle,
 	}
@@ -226,26 +221,6 @@ func decodeLinearGradientOp(data []byte) linearGradientOpData {
 			B: data[21+2],
 			A: data[21+3],
 		},
-	}
-}
-
-func decodePaintOp(data []byte) paint.PaintOp {
-	bo := binary.LittleEndian
-	if opconst.OpType(data[0]) != opconst.TypePaint {
-		panic("invalid op")
-	}
-	r := f32.Rectangle{
-		Min: f32.Point{
-			X: math.Float32frombits(bo.Uint32(data[1:])),
-			Y: math.Float32frombits(bo.Uint32(data[5:])),
-		},
-		Max: f32.Point{
-			X: math.Float32frombits(bo.Uint32(data[9:])),
-			Y: math.Float32frombits(bo.Uint32(data[13:])),
-		},
-	}
-	return paint.PaintOp{
-		Rect: r,
 	}
 }
 
@@ -839,7 +814,7 @@ loop:
 					// Why is this not used for the offset shapes?
 					op.bounds = v.bounds
 				} else {
-					aux, op.bounds = d.buildVerts(aux, trans)
+					aux, op.bounds = d.buildVerts(aux, trans, op.width, op.style)
 					// add it to the cache, without GPU data, so the transform can be
 					// reused.
 					d.pathCache.put(auxKey, opCacheValue{bounds: op.bounds})
@@ -867,12 +842,18 @@ loop:
 			state.matType = materialTexture
 			state.image = decodeImageOp(encOp.Data, encOp.Refs)
 		case opconst.TypePaint:
-			op := decodePaintOp(encOp.Data)
 			// Transform (if needed) the painting rectangle and if so generate a clip path,
 			// for those cases also compute a partialTrans that maps texture coordinates between
 			// the new bounding rectangle and the transformed original paint rectangle.
 			trans, off := splitTransform(state.t)
-			clipData, bnd, partialTrans := d.boundsForTransformedRect(op.Rect, trans)
+			// Fill the clip area, unless the material is a (bounded) image.
+			// TODO: Find a tighter bound.
+			inf := float32(1e6)
+			dst := f32.Rect(-inf, -inf, inf, inf)
+			if state.matType == materialTexture {
+				dst = layout.FRect(state.image.src.Rect)
+			}
+			clipData, bnd, partialTrans := d.boundsForTransformedRect(dst, trans)
 			clip := state.clip.Intersect(bnd.Add(off))
 			if clip.Empty() {
 				continue
@@ -910,7 +891,6 @@ loop:
 			img := imageOp{
 				z:        zf,
 				path:     state.cpath,
-				off:      off,
 				clip:     bounds,
 				material: mat,
 			}
@@ -964,21 +944,20 @@ func (d *drawState) materialFor(cache *resourceCache, rect f32.Rectangle, off f3
 		m.material = materialTexture
 		dr := boundRectF(rect.Add(off))
 		sz := d.image.src.Bounds().Size()
-		sr := layout.FRect(d.image.rect)
-		if dx := float32(dr.Dx()); dx != 0 {
-			// Don't clip 1 px width sources.
-			if sdx := sr.Dx(); sdx > 1 {
-				sr.Min.X += (float32(clip.Min.X-dr.Min.X)*sdx + dx/2) / dx
-				sr.Max.X -= (float32(dr.Max.X-clip.Max.X)*sdx + dx/2) / dx
-			}
+		sr := f32.Rectangle{
+			Max: f32.Point{
+				X: float32(sz.X),
+				Y: float32(sz.Y),
+			},
 		}
-		if dy := float32(dr.Dy()); dy != 0 {
-			// Don't clip 1 px height sources.
-			if sdy := sr.Dy(); sdy > 1 {
-				sr.Min.Y += (float32(clip.Min.Y-dr.Min.Y)*sdy + dy/2) / dy
-				sr.Max.Y -= (float32(dr.Max.Y-clip.Max.Y)*sdy + dy/2) / dy
-			}
-		}
+		dx := float32(dr.Dx())
+		sdx := sr.Dx()
+		sr.Min.X += float32(clip.Min.X-dr.Min.X) * sdx / dx
+		sr.Max.X -= float32(dr.Max.X-clip.Max.X) * sdx / dx
+		dy := float32(dr.Dy())
+		sdy := sr.Dy()
+		sr.Min.Y += float32(clip.Min.Y-dr.Min.Y) * sdy / dy
+		sr.Max.Y -= float32(dr.Max.Y-clip.Max.Y) * sdy / dy
 		tex, exists := cache.get(d.image.handle)
 		if !exists {
 			t := &texture{
@@ -1234,7 +1213,7 @@ func (d *drawOps) writeVertCache(n int) []byte {
 }
 
 // transform, split paths as needed, calculate maxY, bounds and create GPU vertices.
-func (d *drawOps) buildVerts(aux []byte, tr f32.Affine2D) (verts []byte, bounds f32.Rectangle) {
+func (d *drawOps) buildVerts(aux []byte, tr f32.Affine2D, width float32, sty clip.StrokeStyle) (verts []byte, bounds f32.Rectangle) {
 	inf := float32(math.Inf(+1))
 	d.qs.bounds = f32.Rectangle{
 		Min: f32.Point{X: inf, Y: inf},
@@ -1243,14 +1222,37 @@ func (d *drawOps) buildVerts(aux []byte, tr f32.Affine2D) (verts []byte, bounds 
 	d.qs.d = d
 	bo := binary.LittleEndian
 	startLength := len(d.vertCache)
-	for qi := 0; len(aux) >= (ops.QuadSize + 4); qi++ {
-		d.qs.contour = bo.Uint32(aux)
-		quad := ops.DecodeQuad(aux[4:])
-		quad = quad.Transform(tr)
 
-		d.qs.splitAndEncode(quad)
+	switch {
+	default:
+		// Outline path.
+		for qi := 0; len(aux) >= (ops.QuadSize + 4); qi++ {
+			d.qs.contour = bo.Uint32(aux)
+			quad := ops.DecodeQuad(aux[4:])
+			quad = quad.Transform(tr)
 
-		aux = aux[ops.QuadSize+4:]
+			d.qs.splitAndEncode(quad)
+
+			aux = aux[ops.QuadSize+4:]
+		}
+	case width > 0:
+		// Stroke path.
+		quads := make(strokeQuads, 0, 2*len(aux)/(ops.QuadSize+4))
+		for qi := 0; len(aux) >= (ops.QuadSize + 4); qi++ {
+			quad := strokeQuad{
+				contour: bo.Uint32(aux),
+				quad:    ops.DecodeQuad(aux[4:]),
+			}
+			quads = append(quads, quad)
+			aux = aux[ops.QuadSize+4:]
+		}
+		quads = quads.stroke(width, sty)
+		for _, quad := range quads {
+			d.qs.contour = quad.contour
+			quad.quad = quad.quad.Transform(tr)
+
+			d.qs.splitAndEncode(quad.quad)
+		}
 	}
 
 	fillMaxY(d.vertCache[startLength:])

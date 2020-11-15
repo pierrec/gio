@@ -20,9 +20,6 @@ import (
 // Note: the ImageOp may keep a reference to the backing image.
 // See NewImageOp for details.
 type ImageOp struct {
-	// Rect is the section if the backing image to use.
-	Rect image.Rectangle
-
 	uniform bool
 	color   color.RGBA
 	src     *image.RGBA
@@ -46,12 +43,8 @@ type LinearGradientOp struct {
 	Color2 color.RGBA
 }
 
-// PaintOp fills an area with the current brush, respecting the
-// current clip path and transformation.
+// PaintOp fills fills the current clip area with the current brush.
 type PaintOp struct {
-	// Rect is the destination area to paint. If necessary, the brush is
-	// scaled to cover the rectangle area.
-	Rect f32.Rectangle
 }
 
 // NewImageOp creates an ImageOp backed by src. See
@@ -74,7 +67,6 @@ func NewImageOp(src image.Image) ImageOp {
 		bounds := src.Bounds()
 		if bounds.Min == (image.Point{}) && src.Stride == bounds.Dx()*4 {
 			return ImageOp{
-				Rect:   src.Bounds(),
 				src:    src,
 				handle: new(int),
 			}
@@ -88,7 +80,6 @@ func NewImageOp(src image.Image) ImageOp {
 	})
 	draw.Draw(dst, dst.Bounds(), src, src.Bounds().Min, draw.Src)
 	return ImageOp{
-		Rect:   dst.Bounds(),
 		src:    dst,
 		handle: new(int),
 	}
@@ -110,11 +101,6 @@ func (i ImageOp) Add(o *op.Ops) {
 	}
 	data := o.Write(opconst.TypeImageLen, i.src, i.handle)
 	data[0] = byte(opconst.TypeImage)
-	bo := binary.LittleEndian
-	bo.PutUint32(data[1:], uint32(i.Rect.Min.X))
-	bo.PutUint32(data[5:], uint32(i.Rect.Min.Y))
-	bo.PutUint32(data[9:], uint32(i.Rect.Max.X))
-	bo.PutUint32(data[13:], uint32(i.Rect.Max.Y))
 }
 
 func (c ColorOp) Add(o *op.Ops) {
@@ -149,16 +135,10 @@ func (c LinearGradientOp) Add(o *op.Ops) {
 func (d PaintOp) Add(o *op.Ops) {
 	data := o.Write(opconst.TypePaintLen)
 	data[0] = byte(opconst.TypePaint)
-	bo := binary.LittleEndian
-	bo.PutUint32(data[1:], math.Float32bits(d.Rect.Min.X))
-	bo.PutUint32(data[5:], math.Float32bits(d.Rect.Min.Y))
-	bo.PutUint32(data[9:], math.Float32bits(d.Rect.Max.X))
-	bo.PutUint32(data[13:], math.Float32bits(d.Rect.Max.Y))
 }
 
-// FillShape fills the area described by the provided clip.Op with the
-// provided color.
-func FillShape(ops *op.Ops, shape clip.Op, c color.RGBA) {
+// FillShape fills the clip shape with a color.
+func FillShape(ops *op.Ops, c color.RGBA, shape clip.Op) {
 	defer op.Push(ops).Pop()
 	shape.Add(ops)
 	Fill(ops, c)
@@ -171,11 +151,5 @@ func FillShape(ops *op.Ops, shape clip.Op, c color.RGBA) {
 func Fill(ops *op.Ops, c color.RGBA) {
 	defer op.Push(ops).Pop()
 	ColorOp{Color: c}.Add(ops)
-	inf := float32(math.Inf(+1))
-	PaintOp{
-		Rect: f32.Rectangle{
-			Min: f32.Pt(-inf, -inf),
-			Max: f32.Pt(+inf, +inf),
-		},
-	}.Add(ops)
+	PaintOp{}.Add(ops)
 }

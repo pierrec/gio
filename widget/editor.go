@@ -19,6 +19,7 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
@@ -237,7 +238,7 @@ func (e *Editor) processKey(gtx layout.Context) {
 		case key.FocusEvent:
 			e.focused = ke.Focus
 		case key.Event:
-			if !e.focused {
+			if !e.focused || ke.State != key.Press {
 				break
 			}
 			if e.Submit && (ke.Name == key.NameReturn || ke.Name == key.NameEnter) {
@@ -432,7 +433,7 @@ func (e *Editor) PaintText(gtx layout.Context) {
 		stack := op.Push(gtx.Ops)
 		op.Offset(shape.offset).Add(gtx.Ops)
 		shape.clip.Add(gtx.Ops)
-		paint.PaintOp{Rect: layout.FRect(clip).Sub(shape.offset)}.Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
 		stack.Pop()
 	}
 }
@@ -457,19 +458,22 @@ func (e *Editor) PaintCaret(gtx layout.Context) {
 		X: -e.scrollOff.X,
 		Y: -e.scrollOff.Y,
 	})
-	clip := textPadding(e.lines)
+	cl := textPadding(e.lines)
 	// Account for caret width to each side.
 	whalf := (carWidth / 2).Ceil()
-	if clip.Max.X < whalf {
-		clip.Max.X = whalf
+	if cl.Max.X < whalf {
+		cl.Max.X = whalf
 	}
-	if clip.Min.X > -whalf {
-		clip.Min.X = -whalf
+	if cl.Min.X > -whalf {
+		cl.Min.X = -whalf
 	}
-	clip.Max = clip.Max.Add(e.viewSize)
-	carRect = clip.Intersect(carRect)
+	cl.Max = cl.Max.Add(e.viewSize)
+	carRect = cl.Intersect(carRect)
 	if !carRect.Empty() {
-		paint.PaintOp{Rect: layout.FRect(carRect)}.Add(gtx.Ops)
+		st := op.Push(gtx.Ops)
+		clip.Rect(carRect).Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+		st.Pop()
 	}
 }
 
