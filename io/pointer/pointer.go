@@ -65,6 +65,11 @@ type PassOp struct {
 	Pass bool
 }
 
+// CursorNameOp sets the cursor for the current area.
+type CursorNameOp struct {
+	Name CursorName
+}
+
 type ID uint16
 
 // Type of an Event.
@@ -191,6 +196,11 @@ func (op PassOp) Add(o *op.Ops) {
 	if op.Pass {
 		data[1] = 1
 	}
+}
+
+func (op CursorNameOp) Add(o *op.Ops) {
+	data := o.Write(opconst.TypeCursorNameLen, op.Name)
+	data[0] = byte(opconst.TypeCursorName)
 }
 
 func (t Type) String() string {

@@ -162,6 +162,9 @@ func (w *Window) validateAndProcess(frameStart time.Time, size image.Point, sync
 func (w *Window) processFrame(frameStart time.Time, size image.Point, frame *op.Ops) {
 	sync := w.loop.Draw(size, frame)
 	w.queue.q.Frame(frame)
+	if c := w.queue.q.CursorName(); c != "" {
+		w.SetCursorName(c)
+	}
 	switch w.queue.q.TextInputState() {
 	case router.TextInputOpen:
 		w.driver.ShowTextInput(true)

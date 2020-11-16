@@ -41,6 +41,9 @@ type Router struct {
 	profiling    bool
 	profHandlers map[event.Tag]struct{}
 	profile      profile.Event
+
+	// CursorNameOp summary.
+	cursor pointer.CursorName
 }
 
 type handlerEvents struct {
@@ -68,6 +71,7 @@ func (q *Router) Frame(ops *op.Ops) {
 	for k := range q.profHandlers {
 		delete(q.profHandlers, k)
 	}
+	q.cursor = ""
 	q.reader.Reset(ops)
 	q.collect()
 
@@ -99,6 +103,10 @@ func (q *Router) TextInputState() TextInputState {
 	return q.kqueue.InputState()
 }
 
+func (q *Router) CursorName() pointer.CursorName {
+	return q.cursor
+}
+
 func (q *Router) collect() {
 	for encOp, ok := q.reader.Decode(); ok; encOp, ok = q.reader.Decode() {
 		switch opconst.OpType(encOp.Data[0]) {
@@ -115,6 +123,12 @@ func (q *Router) collect() {
 			}
 			q.profiling = true
 			q.profHandlers[op.Tag] = struct{}{}
+
+		case opconst.TypeCursorName:
+			if opconst.OpType(encOp.Data[0]) != opconst.TypeCursorName {
+				panic("invalid op")
+			}
+			q.cursor = encOp.Refs[0].(pointer.CursorName)
 		}
 	}
 }

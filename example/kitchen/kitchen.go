@@ -193,6 +193,8 @@ var (
 	disableBtn        = new(widget.Clickable)
 	radioButtonsGroup = new(widget.Enum)
 	cursorsGroup      = new(widget.Enum)
+	cursorBtn         = new(widget.Clickable)
+	cursorCurrent     = pointer.CursorArrow
 	list              = &layout.List{
 		Axis: layout.Vertical,
 	}
@@ -324,6 +326,37 @@ func kitchen(gtx layout.Context, th *material.Theme, w *app.Window) layout.Dimen
 								}
 								return layout.Center.Layout(gtx, flatBtnText.Layout)
 							})
+						})
+					})
+				}),
+				layout.Rigid(func(gtx C) D {
+					var next pointer.CursorName
+					switch cursorCurrent {
+					case "arrow":
+						next = "text"
+					case "text":
+						next = "pointer"
+					case "pointer":
+						next = "crosshair"
+					case "crosshair":
+						next = "vertical resize"
+					case "vertical resize":
+						next = "horizontal resize"
+					default:
+						next = "arrow"
+					}
+					if cursorBtn.Clicked() {
+						cursorCurrent = next
+						pointer.CursorNameOp{Name: next}.Add(gtx.Ops)
+					}
+					return widget.Border{
+						Color:        color.RGBA{A: 0xff},
+						CornerRadius: unit.Dp(4),
+						Width:        unit.Dp(1),
+					}.Layout(gtx, func(gtx C) D {
+						return material.Clickable(gtx, cursorBtn, func(gtx C) D {
+							return layout.UniformInset(unit.Dp(3)).Layout(gtx,
+								material.Body1(th, fmt.Sprintf("Click for %s", next)).Layout)
 						})
 					})
 				}),
