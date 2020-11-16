@@ -212,8 +212,10 @@ func (w *Window) WriteClipboard(s string) {
 
 // SetCursorName changes the current window cursor to the one specified
 // and returns the current one.
-func (w *Window) SetCursorName(name pointer.CursorName) pointer.CursorName {
-	return pointer.CursorName(w.driver.SetCursor(string(name)))
+func (w *Window) SetCursorName(name pointer.CursorName) {
+	go w.driverDo(func() {
+		w.driver.SetCursor(string(name))
+	})
 }
 
 // Close the window. The window's event loop should exit when it receives

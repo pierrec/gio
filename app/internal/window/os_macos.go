@@ -38,6 +38,7 @@ __attribute__ ((visibility ("hidden"))) CGFloat gio_viewHeight(CFTypeRef viewRef
 __attribute__ ((visibility ("hidden"))) CGFloat gio_getViewBackingScale(CFTypeRef viewRef);
 __attribute__ ((visibility ("hidden"))) CGFloat gio_getScreenBackingScale(void);
 __attribute__ ((visibility ("hidden"))) CFTypeRef gio_readClipboard(void);
+__attribute__ ((visibility ("hidden"))) void gio_setCursor(unichar *chars, NSUInteger length);
 __attribute__ ((visibility ("hidden"))) void gio_writeClipboard(unichar *chars, NSUInteger length);
 __attribute__ ((visibility ("hidden"))) void gio_setNeedsDisplay(CFTypeRef viewRef);
 __attribute__ ((visibility ("hidden"))) CFTypeRef gio_createWindow(CFTypeRef viewRef, const char *title, CGFloat width, CGFloat height, CGFloat minWidth, CGFloat minHeight, CGFloat maxWidth, CGFloat maxHeight);
@@ -122,8 +123,15 @@ func (w *window) WriteClipboard(s string) {
 	})
 }
 
-func (w *window) SetCursor(name string) string {
-	return ""
+func (w *window) SetCursor(s string) {
+	u16 := utf16.Encode([]rune(s))
+	runOnMain(func() {
+		var chars *C.unichar
+		if len(u16) > 0 {
+			chars = (*C.unichar)(unsafe.Pointer(&u16[0]))
+		}
+		C.gio_setCursor(chars, C.NSUInteger(len(u16)))
+	})
 }
 
 func (w *window) ShowTextInput(show bool) {}

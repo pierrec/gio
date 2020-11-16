@@ -67,6 +67,30 @@ CFTypeRef gio_readClipboard(void) {
 	}
 }
 
+void gio_setCursor(unichar *chars, NSUInteger length) {
+    @autoreleasepool {
+        NSString *s = [NSString string];
+        if (length > 0) {
+           s = [NSString stringWithCharacters:chars length:length];
+        }
+        if ([s isEqualToString: @"arrow"]) {
+           [NSCursor.arrowCursor set];
+        } else if ([s isEqualToString: @"text"]) {
+           [NSCursor.IBeamCursor set];
+        } else if ([s isEqualToString: @"pointer"]) {
+           [NSCursor.pointingHandCursor set];
+        } else if ([s isEqualToString: @"move"]) {
+           [NSCursor.crosshairCursor set];
+        } else if ([s isEqualToString: @"vertical resize"]) {
+           [NSCursor.resizeLeftRightCursor set];
+        } else if ([s isEqualToString: @"horizontal resize"]) {
+           [NSCursor.resizeUpDownCursor set];
+        } else {
+            [NSCursor.arrowCursor set];
+        }
+    }
+}
+
 CGFloat gio_viewHeight(CFTypeRef viewRef) {
 	NSView *view = (__bridge NSView *)viewRef;
 	return [view bounds].size.height;

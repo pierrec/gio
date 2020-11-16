@@ -15,12 +15,14 @@ import (
 	"log"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	"gioui.org/app"
 	"gioui.org/app/headless"
 	"gioui.org/f32"
 	"gioui.org/font/gofont"
+	"gioui.org/io/pointer"
 	"gioui.org/io/router"
 	"gioui.org/io/system"
 	"gioui.org/layout"
@@ -96,7 +98,7 @@ func saveScreenshot(f string) error {
 		Queue:       new(router.Router),
 	}
 	th := material.NewTheme(gofont.Collection())
-	kitchen(gtx, th)
+	kitchen(gtx, th, nil)
 	w.Frame(gtx.Ops)
 	img, err := w.Screenshot()
 	if err != nil {
@@ -140,7 +142,7 @@ func loop(w *app.Window) error {
 					}
 				}
 
-				transformedKitchen(gtx, th)
+				transformedKitchen(gtx, th, w)
 				e.Frame(gtx.Ops)
 			}
 		case p := <-progressIncrementer:
@@ -153,7 +155,7 @@ func loop(w *app.Window) error {
 	}
 }
 
-func transformedKitchen(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func transformedKitchen(gtx layout.Context, th *material.Theme, w *app.Window) layout.Dimensions {
 	if !transformTime.IsZero() {
 		dt := float32(gtx.Now.Sub(transformTime).Seconds())
 		angle := dt * .1
@@ -174,7 +176,7 @@ func transformedKitchen(gtx layout.Context, th *material.Theme) layout.Dimension
 		op.Affine(tr).Add(gtx.Ops)
 	}
 
-	return kitchen(gtx, th)
+	return kitchen(gtx, th, w)
 }
 
 var (
@@ -190,6 +192,7 @@ var (
 	flatBtn           = new(widget.Clickable)
 	disableBtn        = new(widget.Clickable)
 	radioButtonsGroup = new(widget.Enum)
+	cursorsGroup      = new(widget.Enum)
 	list              = &layout.List{
 		Axis: layout.Vertical,
 	}
@@ -242,7 +245,7 @@ func (b iconAndTextButton) Layout(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func kitchen(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func kitchen(gtx layout.Context, th *material.Theme, w *app.Window) layout.Dimensions {
 	for _, e := range lineEditor.Events() {
 		if e, ok := e.(widget.SubmitEvent); ok {
 			topLabel = e.Text
@@ -373,6 +376,26 @@ func kitchen(gtx layout.Context, th *material.Theme) layout.Dimensions {
 						material.Body1(th, fmt.Sprintf("%.2f", float.Value)).Layout,
 					)
 				}),
+			)
+		},
+		func(gtx C) D {
+			r := func(s string) layout.FlexChild {
+				k := strings.ToLower(s)
+				return layout.Rigid(func(gtx C) D {
+					if w != nil && cursorsGroup.Changed() {
+						w.SetCursorName(pointer.CursorName(cursorsGroup.Value))
+					}
+					return material.RadioButton(th, cursorsGroup, k, s).Layout(gtx)
+				})
+			}
+			return layout.Flex{}.Layout(gtx,
+				layout.Rigid(material.Body1(th, "Change cursor").Layout),
+				r("Arrow"),
+				r("Text"),
+				r("Pointer"),
+				r("Move"),
+				r("Vertical resize"),
+				r("Horizontal resize"),
 			)
 		},
 	}
