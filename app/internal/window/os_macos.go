@@ -123,8 +123,8 @@ func (w *window) WriteClipboard(s string) {
 	})
 }
 
-func (w *window) SetCursor(s string) {
-	u16 := utf16.Encode([]rune(s))
+func (w *window) SetCursor(name string) {
+	u16 := utf16.Encode([]rune(name))
 	runOnMain(func() {
 		var chars *C.unichar
 		if len(u16) > 0 {

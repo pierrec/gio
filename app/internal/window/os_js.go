@@ -396,6 +396,10 @@ func (w *window) WriteClipboard(s string) {
 	w.clipboard.Call("writeText", s)
 }
 
+func (w *window) SetCursor(name string) {
+	//TODO SetCursor
+}
+
 func (w *window) ShowTextInput(show bool) {
 	// Run in a goroutine to avoid a deadlock if the
 	// focus change result in an event.

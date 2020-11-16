@@ -249,6 +249,8 @@ func (w *window) SetAnimating(anim bool) {
 	}
 }
 
+func (w *window) SetCursor(string) {}
+
 func (w *window) onKeyCommand(name string) {
 	w.w.Event(key.Event{
 		Name: name,

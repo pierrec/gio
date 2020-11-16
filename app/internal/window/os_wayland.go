@@ -917,6 +917,10 @@ func (w *window) WriteClipboard(s string) {
 	w.disp.wakeup()
 }
 
+func (w *window) SetCursor(name string) {
+	//TODO SetCursor
+}
+
 func (w *window) resetFling() {
 	w.fling.start = false
 	w.fling.anim = fling.Animation{}

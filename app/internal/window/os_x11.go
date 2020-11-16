@@ -112,6 +112,10 @@ func (w *x11Window) WriteClipboard(s string) {
 	w.wakeup()
 }
 
+func (w *x11Window) SetCursor(name string) {
+	//TODO SetCursor
+}
+
 func (w *x11Window) ShowTextInput(show bool) {}
 
 // Close the window.

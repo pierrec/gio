@@ -392,6 +392,8 @@ func (w *window) SetAnimating(anim bool) {
 	}
 }
 
+func (w *window) SetCursor(string) {}
+
 func (w *window) draw(sync bool) {
 	win := w.aNativeWindow()
 	width, height := C.ANativeWindow_getWidth(win), C.ANativeWindow_getHeight(win)
