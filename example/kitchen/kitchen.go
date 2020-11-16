@@ -393,7 +393,7 @@ func kitchen(gtx layout.Context, th *material.Theme, w *app.Window) layout.Dimen
 				r("Arrow"),
 				r("Text"),
 				r("Pointer"),
-				r("Move"),
+				r("Crosshair"),
 				r("Vertical resize"),
 				r("Horizontal resize"),
 			)

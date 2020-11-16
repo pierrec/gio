@@ -92,8 +92,8 @@ const (
 	CursorText CursorName = "text"
 	// CursorPointer defines the cursor to indicate a link.
 	CursorPointer CursorName = "pointer"
-	// CursorMove defines the cursor to indicate moving an area.
-	CursorMove CursorName = "move"
+	// CursorCrossHair defines the cursor to indicate precise location.
+	CursorCrossHair CursorName = "crosshair"
 	// CursorVerticalResize defines the cursor to indicate vertical resize.
 	CursorVerticalResize CursorName = "vertical resize"
 	// CursorHorizontalResize defines the cursor to indicate horizontal resize.

@@ -45,6 +45,7 @@ type window struct {
 	height      int
 	stage       system.Stage
 	pointerBtns pointer.Buttons
+	cursor      syscall.Handle
 
 	mu        sync.Mutex
 	animating bool
@@ -74,8 +75,6 @@ var resources struct {
 	handle syscall.Handle
 	// class is the Gio window class from RegisterClassEx.
 	class uint16
-	// cursor is the arrow cursor resource
-	cursor syscall.Handle
 }
 
 func Main() {
@@ -105,6 +104,9 @@ func NewWindow(window Callbacks, opts *Options) error {
 		windows.ShowWindow(w.hwnd, windows.SW_SHOWDEFAULT)
 		windows.SetForegroundWindow(w.hwnd)
 		windows.SetFocus(w.hwnd)
+		// Since the window class for the cursor is null,
+		// set it here to show the cursor.
+		w.SetCursor("")
 		if err := w.loop(); err != nil {
 			panic(err)
 		}
@@ -120,17 +122,17 @@ func initResources() error {
 		return err
 	}
 	resources.handle = hInst
-	curs, err := windows.LoadCursor(windows.IDC_ARROW)
-	if err != nil {
+	if _, err := windows.LoadCursor(windows.IDC_ARROW); err != nil {
 		return err
 	}
-	resources.cursor = curs
+	// Leave the HCursor class NULL to be able to change the cursor.
+	// See the remarks here:
+	// https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setcursor
 	wcls := windows.WndClassEx{
 		CbSize:        uint32(unsafe.Sizeof(windows.WndClassEx{})),
 		Style:         windows.CS_HREDRAW | windows.CS_VREDRAW | windows.CS_OWNDC,
 		LpfnWndProc:   syscall.NewCallback(windowProc),
 		HInstance:     hInst,
-		HCursor:       curs,
 		LpszClassName: syscall.StringToUTF16Ptr("GioWindow"),
 	}
 	cls, err := windows.RegisterClassEx(&wcls)
@@ -297,6 +299,8 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 				Y: w.minmax.maxHeight + w.deltas.height,
 			}
 		}
+	case windows.WM_SETCURSOR:
+		windows.SetCursor(w.cursor)
 	}
 
 	return windows.DefWindowProc(hwnd, msg, wParam, lParam)
@@ -544,6 +548,31 @@ func (w *window) writeClipboard(s string) error {
 		return err
 	}
 	return nil
+}
+
+func (w *window) SetCursor(name string) {
+	var curID uint16
+	switch name {
+	case "arrow":
+		curID = windows.IDC_ARROW
+	case "text":
+		curID = windows.IDC_IBEAM
+	case "pointer":
+		curID = windows.IDC_HAND
+	case "crosshair":
+		curID = windows.IDC_CROSS
+	case "vertical resize":
+		curID = windows.IDC_SIZENS
+	case "horizontal resize":
+		curID = windows.IDC_SIZEWE
+	default:
+		curID = windows.IDC_ARROW
+	}
+	c, err := windows.LoadCursor(curID)
+	if err != nil {
+		return
+	}
+	w.cursor = c
 }
 
 func (w *window) ShowTextInput(show bool) {}

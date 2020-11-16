@@ -79,7 +79,7 @@ void gio_setCursor(unichar *chars, NSUInteger length) {
            [NSCursor.IBeamCursor set];
         } else if ([s isEqualToString: @"pointer"]) {
            [NSCursor.pointingHandCursor set];
-        } else if ([s isEqualToString: @"move"]) {
+        } else if ([s isEqualToString: @"crosshair"]) {
            [NSCursor.crosshairCursor set];
         } else if ([s isEqualToString: @"vertical resize"]) {
            [NSCursor.resizeLeftRightCursor set];
